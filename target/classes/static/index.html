@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Manager</title>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css?v=6">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon gmail-bg">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>Certificate Manager</h2>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="clusters">
+                    <i class="fa-solid fa-server"></i> Clusters & Certificates
+                </button>
+            </nav>
+
+            <div class="sidebar-user" id="userBox">
+                <div class="user-info">
+                    <i class="fa-solid fa-circle-user"></i>
+                    <span id="loggedInUser">ethan_hunt</span>
+                </div>
+                <button type="button" class="btn-logout" id="logoutBtn" title="Logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1 id="pageTitle">Cluster & Certificate Manager</h1>
+                    <p id="pageSubtitle">Manage certificates per cluster. Automated daily scheduler sends email alerts before expiration.</p>
+                </div>
+            </header>
+
+            <!-- Clusters & SSL Certificates Management -->
+            <section id="clustersView" class="tab-view active">
+                <div class="action-toolbar glass">
+                    <div class="toolbar-left">
+                        <h2>Monitored Clusters</h2>
+                        <span class="sub-text">Persistent data synced with .txt storage file</span>
+                    </div>
+                    <div class="toolbar-right">
+                        <button class="btn btn-primary" id="openClusterModalBtn">
+                            <i class="fa-solid fa-folder-plus"></i> Create New Cluster
+                        </button>
+                        <button class="btn btn-gmail" id="openCertModalBtn">
+                            <i class="fa-solid fa-certificate"></i> Add Certificate
+                        </button>
+                    </div>
+                </div>
+
+                <div id="clustersContainer" class="clusters-grid">
+                    <!-- Dynamic Clusters & Certificate Cards rendered by app.js -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Create Cluster Modal -->
+    <div id="clusterModal" class="modal-overlay">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-folder-plus"></i> Create New Cluster</h3>
+                <button class="close-modal" id="closeClusterModalBtn">&times;</button>
+            </div>
+            <form id="createClusterForm">
+                <div class="form-group">
+                    <label for="clusterName">Cluster Name <span class="required">*</span></label>
+                    <input type="text" id="clusterName" class="input-control" placeholder="e.g. Production US-East" required>
+                </div>
+                <div class="form-group">
+                    <label for="clusterDescription">Description</label>
+                    <input type="text" id="clusterDescription" class="input-control" placeholder="e.g. Core microservices cluster">
+                </div>
+                <div class="form-group">
+                    <label for="clusterRecipientEmails">Notification Recipients <span class="required">*</span></label>
+                    <input type="text" id="clusterRecipientEmails" class="input-control" placeholder="e.g. devops@company.com, admin@company.com" required>
+                    <small class="help-text">Comma-separated emails that receive expiration alerts for certificates in this cluster.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelClusterModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Cluster to .txt</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create/Edit Certificate Modal -->
+    <div id="certModal" class="modal-overlay">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <h3 id="certModalTitle"><i class="fa-solid fa-certificate"></i> Add Certificate to Cluster</h3>
+                <button class="close-modal" id="closeCertModalBtn">&times;</button>
+            </div>
+            <form id="createCertForm">
+                <input type="hidden" id="editCertId" value="">
+                <input type="hidden" id="editCertClusterId" value="">
+                <div class="form-group" id="certClusterGroup">
+                    <label for="certClusterSelect">Select Cluster <span class="required">*</span></label>
+                    <select id="certClusterSelect" class="input-control" required>
+                        <option value="">Select Target Cluster...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="certName">Certificate Name <span class="required">*</span></label>
+                    <input type="text" id="certName" class="input-control" placeholder="e.g. *.domain.com SSL Wildcard Cert" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-6">
+                        <label for="certIssuedDate">Issued Date <span class="required">*</span></label>
+                        <input type="date" id="certIssuedDate" class="input-control" required>
+                    </div>
+                    <div class="form-group col-6">
+                        <label for="certEndDate">End / Expiry Date <span class="required">*</span></label>
+                        <input type="date" id="certEndDate" class="input-control" required>
+                    </div>
+                </div>
+                <small class="help-text">The scheduler will automatically dispatch email alerts 7 days before the End Date.</small>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelCertModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveCertBtn">Save Certificate to .txt</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Login Screen Overlay -->
+    <div id="loginScreen" class="login-screen-overlay">
+        <div class="login-card glass">
+            <div class="login-brand">
+                <div class="brand-icon gmail-bg">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h2>Certificate Manager</h2>
+                <p>Sign in with your administrator account</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="usernameInput"><i class="fa-solid fa-user"></i> Username</label>
+                    <input type="text" id="usernameInput" class="input-control" placeholder="Enter username..." required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="passwordInput"><i class="fa-solid fa-lock"></i> Password</label>
+                    <input type="password" id="passwordInput" class="input-control" placeholder="••••••••••••" required autocomplete="current-password">
+                </div>
+                <div id="loginErrorMsg" class="login-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Invalid username or password
+                </div>
+                <button type="submit" class="btn btn-gmail btn-block" id="loginSubmitBtn" style="margin-top: 10px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In to Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=6"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[ {
+  "id" : "cluster-1",
+  "clusterName" : "pucc",
+  "description" : "pollution certification",
+  "recipientEmails" : "ananthakrishna810@gmail.com",
+  "certificates" : [ {
+    "id" : "cert-1",
+    "certificateName" : "pollution certificate for KL00BD0000",
+    "issuedDate" : "2026-08-04",
+    "endDate" : "2026-08-26",
+    "daysRemaining" : 2,
+    "status" : "EXPIRING (2 Days)",
+    "lastAlertSentDate" : "2026-08-24"
+  } ]
+} ]
