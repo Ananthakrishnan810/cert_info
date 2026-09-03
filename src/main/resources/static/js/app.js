@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CLUSTERS & CERTIFICATE API LOGIC ---
 
+
     async function fetchClusters() {
         try {
             const res = await fetch('/api/clusters');
@@ -99,11 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </thead>
                 <tbody>
                     ${certificates.map(cert => {
-                        let statusClass = 'status-active';
-                        if (cert.status && cert.status.includes('EXPIRING')) statusClass = 'status-expiring';
-                        if (cert.status && cert.status.includes('EXPIRED')) statusClass = 'status-expired';
+            let statusClass = 'status-active';
+            if (cert.status && cert.status.includes('EXPIRING')) statusClass = 'status-expiring';
+            if (cert.status && cert.status.includes('EXPIRED')) statusClass = 'status-expired';
 
-                        return `
+            return `
                             <tr>
                                 <td><strong>${escapeHtml(cert.certificateName)}</strong></td>
                                 <td>${escapeHtml(cert.issuedDate)}</td>
@@ -120,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </td>
                             </tr>
                         `;
-                    }).join('')}
+        }).join('')}
                 </tbody>
             </table>
         `;
@@ -377,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', async () => {
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
-            } catch (e) {}
+            } catch (e) { }
             if (loginScreen) loginScreen.classList.remove('hidden');
         });
     }

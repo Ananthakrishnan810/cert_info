@@ -36,7 +36,8 @@ public class ClusterController {
 
     @PostMapping
     public ResponseEntity<Cluster> createCluster(@Valid @RequestBody CreateClusterRequest request) {
-        Cluster cluster = clusterService.createCluster(request.getClusterName(), request.getDescription(), request.getRecipientEmails());
+        Cluster cluster = clusterService.createCluster(request.getClusterName(), request.getDescription(),
+                request.getRecipientEmails());
         return ResponseEntity.ok(cluster);
     }
 
@@ -46,8 +47,7 @@ public class ClusterController {
                 request.getClusterId(),
                 request.getCertificateName(),
                 request.getIssuedDate(),
-                request.getEndDate()
-        );
+                request.getEndDate());
         return ResponseEntity.ok(cert);
     }
 
@@ -61,13 +61,13 @@ public class ClusterController {
                 certId,
                 request.getCertificateName(),
                 request.getIssuedDate(),
-                request.getEndDate()
-        );
+                request.getEndDate());
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{clusterId}/certificates/{certId}")
-    public ResponseEntity<Map<String, Object>> deleteCertificate(@PathVariable String clusterId, @PathVariable String certId) {
+    public ResponseEntity<Map<String, Object>> deleteCertificate(@PathVariable String clusterId,
+            @PathVariable String certId) {
         boolean deleted = clusterService.deleteCertificate(clusterId, certId);
         Map<String, Object> res = new HashMap<>();
         res.put("success", deleted);
@@ -83,7 +83,8 @@ public class ClusterController {
     }
 
     @PostMapping("/check-expirations")
-    public ResponseEntity<Map<String, Object>> triggerExpirationCheck(@RequestParam(defaultValue = "false") boolean forceAlert) {
+    public ResponseEntity<Map<String, Object>> triggerExpirationCheck(
+            @RequestParam(defaultValue = "false") boolean forceAlert) {
         int triggered = clusterService.checkAndTriggerExpirationAlerts(gmailService, forceAlert);
         Map<String, Object> res = new HashMap<>();
         res.put("triggeredAlerts", triggered);

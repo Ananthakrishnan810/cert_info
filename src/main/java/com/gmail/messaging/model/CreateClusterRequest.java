@@ -11,6 +11,8 @@ public class CreateClusterRequest {
     @NotBlank(message = "Recipient emails are required")
     private String recipientEmails;
 
+    private boolean sendWelcomeEmail;
+
     public CreateClusterRequest() {}
 
     public String getClusterName() { return clusterName; }
@@ -21,4 +23,7 @@ public class CreateClusterRequest {
 
     public String getRecipientEmails() { return recipientEmails; }
     public void setRecipientEmails(String recipientEmails) { this.recipientEmails = recipientEmails; }
+
+    public boolean isSendWelcomeEmail() { return sendWelcomeEmail; }
+    public void setSendWelcomeEmail(boolean sendWelcomeEmail) { this.sendWelcomeEmail = sendWelcomeEmail; }
 }
