@@ -13,6 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const clustersContainer = document.getElementById('clustersContainer');
     const certClusterSelect = document.getElementById('certClusterSelect');
 
+    const clusterModalTitle = document.getElementById('clusterModalTitle');
+    const editClusterId = document.getElementById('editClusterId');
+    const saveClusterBtn = document.getElementById('saveClusterBtn');
+
     const certModalTitle = document.getElementById('certModalTitle');
     const editCertId = document.getElementById('editCertId');
     const editCertClusterId = document.getElementById('editCertClusterId');
@@ -28,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchClusters() {
         try {
-            const res = await fetch('/api/clusters');
+            const res = await fetch('/api/clusters?t=' + Date.now());
             clustersData = await res.json();
             renderClusters(clustersData);
             populateClusterDropdown(clustersData);
@@ -61,13 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">${escapeHtml(cluster.description || 'No description provided')}</p>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
                         <div class="cluster-recipients">
                             <i class="fa-solid fa-envelope"></i>
                             <span>${escapeHtml(cluster.recipientEmails)}</span>
                         </div>
-                        <button class="btn btn-secondary" onclick="deleteCluster('${cluster.id}')" title="Delete Cluster" style="padding: 6px 10px; font-size: 0.78rem; color: #ef4444;">
-                            <i class="fa-solid fa-trash"></i>
+                        <button class="btn btn-secondary btn-edit-cluster" data-id="${cluster.id}" onclick="editCluster('${cluster.id}')" title="Edit Cluster" style="padding: 6px 10px; font-size: 0.78rem;">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </button>
+                        <button class="btn btn-secondary btn-delete-cluster" data-id="${cluster.id}" onclick="deleteCluster('${cluster.id}')" title="Delete Cluster" style="padding: 6px 10px; font-size: 0.78rem; color: #ef4444;">
+                            <i class="fa-solid fa-trash"></i> Delete
                         </button>
                     </div>
                 </div>
@@ -112,11 +119,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td><strong>${cert.daysRemaining} days</strong></td>
                                 <td><span class="status-badge ${statusClass}">${escapeHtml(cert.status)}</span></td>
                                 <td>
-                                    <button class="btn btn-secondary" onclick="editCertificate('${clusterId}', '${cert.id}')" title="Edit Certificate" style="padding: 4px 8px; font-size: 0.78rem;">
+                                    <button class="btn btn-secondary btn-edit-cert" data-cluster-id="${clusterId}" data-cert-id="${cert.id}" onclick="editCertificate('${clusterId}', '${cert.id}')" title="Edit Certificate" style="padding: 4px 8px; font-size: 0.78rem;">
                                         <i class="fa-solid fa-pen-to-square"></i> Edit
                                     </button>
-                                    <button class="btn btn-secondary" onclick="deleteCertificate('${clusterId}', '${cert.id}')" title="Delete Certificate" style="padding: 4px 8px; font-size: 0.78rem; color: #ef4444;">
-                                        <i class="fa-solid fa-trash"></i>
+                                    <button class="btn btn-secondary btn-delete-cert" data-cluster-id="${clusterId}" data-cert-id="${cert.id}" onclick="deleteCertificate('${clusterId}', '${cert.id}')" title="Delete Certificate" style="padding: 4px 8px; font-size: 0.78rem; color: #ef4444;">
+                                        <i class="fa-solid fa-trash"></i> Delete
                                     </button>
                                 </td>
                             </tr>
@@ -146,9 +153,36 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('active');
     }
 
-    if (openClusterModalBtn) openClusterModalBtn.addEventListener('click', () => openModal(clusterModal));
+    function resetClusterModal() {
+        createClusterForm.reset();
+        if (editClusterId) editClusterId.value = '';
+        if (clusterModalTitle) clusterModalTitle.innerHTML = '<i class="fa-solid fa-folder-plus"></i> Create New Cluster';
+        if (saveClusterBtn) saveClusterBtn.textContent = 'Save Cluster to .txt';
+    }
+
+    if (openClusterModalBtn) {
+        openClusterModalBtn.addEventListener('click', () => {
+            resetClusterModal();
+            openModal(clusterModal);
+        });
+    }
     if (closeClusterModalBtn) closeClusterModalBtn.addEventListener('click', () => closeModal(clusterModal));
     if (cancelClusterModalBtn) cancelClusterModalBtn.addEventListener('click', () => closeModal(clusterModal));
+
+    window.editCluster = (clusterId) => {
+        const cluster = clustersData.find(c => c.id === clusterId);
+        if (!cluster) return;
+
+        if (editClusterId) editClusterId.value = cluster.id;
+        document.getElementById('clusterName').value = cluster.clusterName || '';
+        document.getElementById('clusterDescription').value = cluster.description || '';
+        document.getElementById('clusterRecipientEmails').value = cluster.recipientEmails || '';
+
+        if (clusterModalTitle) clusterModalTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Cluster Details';
+        if (saveClusterBtn) saveClusterBtn.textContent = 'Update Cluster';
+
+        openModal(clusterModal);
+    };
 
     if (openCertModalBtn) {
         openCertModalBtn.addEventListener('click', () => {
@@ -196,46 +230,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // Form Submissions
     createClusterForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitBtn = createClusterForm.querySelector('button[type="submit"]');
+        const origText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        }
+
+        const clusterId = editClusterId ? editClusterId.value : '';
+        const isEdit = clusterId !== '';
+
         const payload = {
             clusterName: document.getElementById('clusterName').value.trim(),
             description: document.getElementById('clusterDescription').value.trim(),
             recipientEmails: document.getElementById('clusterRecipientEmails').value.trim()
         };
 
+        const url = isEdit ? `/api/clusters/${clusterId}` : '/api/clusters';
+        const method = isEdit ? 'PUT' : 'POST';
+
         try {
-            const res = await fetch('/api/clusters', {
-                method: 'POST',
+            const res = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
                 closeModal(clusterModal);
-                createClusterForm.reset();
+                resetClusterModal();
                 fetchClusters();
             } else {
-                alert('Failed to save cluster.');
+                alert(`Failed to ${isEdit ? 'update' : 'save'} cluster.`);
             }
         } catch (err) {
             alert('Error connecting to server: ' + err.message);
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origText;
+            }
         }
     });
 
     createCertForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitBtn = createCertForm.querySelector('button[type="submit"]');
+        const origText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        }
+
         const isEdit = editCertId.value !== '';
 
-        if (isEdit) {
-            const clusterId = editCertClusterId.value;
-            const certId = editCertId.value;
-            const payload = {
-                clusterId: clusterId,
-                certificateName: certNameInput.value.trim(),
-                issuedDate: certIssuedDateInput.value,
-                endDate: certEndDateInput.value
-            };
+        try {
+            if (isEdit) {
+                const clusterId = editCertClusterId.value;
+                const certId = editCertId.value;
+                const payload = {
+                    clusterId: clusterId,
+                    certificateName: certNameInput.value.trim(),
+                    issuedDate: certIssuedDateInput.value,
+                    endDate: certEndDateInput.value
+                };
 
-            try {
                 const res = await fetch(`/api/clusters/${clusterId}/certificates/${certId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -249,18 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     alert('Failed to update certificate.');
                 }
-            } catch (err) {
-                alert('Error updating certificate: ' + err.message);
-            }
-        } else {
-            const payload = {
-                clusterId: certClusterSelect.value,
-                certificateName: certNameInput.value.trim(),
-                issuedDate: certIssuedDateInput.value,
-                endDate: certEndDateInput.value
-            };
+            } else {
+                const payload = {
+                    clusterId: certClusterSelect.value,
+                    certificateName: certNameInput.value.trim(),
+                    issuedDate: certIssuedDateInput.value,
+                    endDate: certEndDateInput.value
+                };
 
-            try {
                 const res = await fetch('/api/clusters/certificates', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -269,34 +324,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res.ok) {
                     closeModal(certModal);
-                    createCertForm.reset();
+                    resetCertModal();
                     fetchClusters();
                 } else {
                     alert('Failed to add certificate.');
                 }
-            } catch (err) {
-                alert('Error adding certificate: ' + err.message);
+            }
+        } catch (err) {
+            alert('Error processing certificate: ' + err.message);
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origText;
             }
         }
     });
 
     window.deleteCertificate = async (clusterId, certId) => {
-        if (!confirm('Are you sure you want to delete this certificate?')) return;
         try {
+            console.log('Deleting certificate:', certId, 'from cluster:', clusterId);
             const res = await fetch(`/api/clusters/${clusterId}/certificates/${certId}`, { method: 'DELETE' });
-            if (res.ok) fetchClusters();
+            if (res.ok) {
+                await fetchClusters();
+            } else {
+                alert('Failed to delete certificate from server.');
+            }
         } catch (err) {
-            alert('Failed to delete certificate.');
+            console.error('Error deleting certificate:', err);
+            alert('Failed to delete certificate: ' + err.message);
         }
     };
 
     window.deleteCluster = async (clusterId) => {
-        if (!confirm('Are you sure you want to delete this cluster and all its certificates?')) return;
         try {
+            console.log('Deleting cluster:', clusterId);
             const res = await fetch(`/api/clusters/${clusterId}`, { method: 'DELETE' });
-            if (res.ok) fetchClusters();
+            if (res.ok) {
+                await fetchClusters();
+            } else {
+                alert('Failed to delete cluster from server.');
+            }
         } catch (err) {
-            alert('Failed to delete cluster.');
+            console.error('Error deleting cluster:', err);
+            alert('Failed to delete cluster: ' + err.message);
         }
     };
 

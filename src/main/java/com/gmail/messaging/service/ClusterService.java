@@ -46,6 +46,19 @@ public class ClusterService {
         return newCluster;
     }
 
+    public synchronized Cluster updateCluster(String clusterId, String name, String description, String recipientEmails) {
+        Cluster cluster = findClusterById(clusterId);
+        if (cluster == null) {
+            throw new IllegalArgumentException("Cluster with ID " + clusterId + " not found.");
+        }
+        cluster.setClusterName(name);
+        cluster.setDescription(description);
+        cluster.setRecipientEmails(recipientEmails);
+
+        fileStorageService.saveClusters(clusters);
+        return cluster;
+    }
+
     public synchronized Certificate addCertificateToCluster(String clusterId, String certName, String issuedDate, String endDate) {
         Cluster cluster = findClusterById(clusterId);
         if (cluster == null) {
@@ -85,9 +98,10 @@ public class ClusterService {
     public synchronized boolean deleteCertificate(String clusterId, String certId) {
         Cluster cluster = findClusterById(clusterId);
         if (cluster != null && cluster.getCertificates() != null) {
-            boolean removed = cluster.getCertificates().removeIf(c -> c.getId().equals(certId));
+            boolean removed = cluster.getCertificates().removeIf(c -> c.getId() != null && c.getId().equals(certId));
             if (removed) {
                 fileStorageService.saveClusters(clusters);
+                logger.info("Successfully deleted cert [{}] from cluster [{}]", certId, clusterId);
                 return true;
             }
         }
@@ -95,11 +109,14 @@ public class ClusterService {
     }
 
     public synchronized boolean deleteCluster(String clusterId) {
-        boolean removed = clusters.removeIf(c -> c.getId().equals(clusterId));
+        logger.info("Attempting to delete cluster with ID [{}]", clusterId);
+        boolean removed = clusters.removeIf(c -> c.getId() != null && c.getId().equals(clusterId));
         if (removed) {
             fileStorageService.saveClusters(clusters);
+            logger.info("Successfully deleted cluster [{}] and saved storage file.", clusterId);
             return true;
         }
+        logger.warn("Failed to delete cluster [{}]: cluster ID not found.", clusterId);
         return false;
     }
 
@@ -159,7 +176,7 @@ public class ClusterService {
         return alertCount;
     }
 
-    private Cluster findClusterById(String id) {
+    public Cluster findClusterById(String id) {
         return clusters.stream().filter(c -> c.getId().equals(id)).findFirst().orElse(null);
     }
 
