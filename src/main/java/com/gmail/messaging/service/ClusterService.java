@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,17 +16,16 @@ public class ClusterService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterService.class);
 
-    private final FileStorageService fileStorageService;
-    private final List<Cluster> clusters;
+    private final SqliteStorageService sqliteStorageService;
 
     @Autowired
-    public ClusterService(FileStorageService fileStorageService) {
-        this.fileStorageService = fileStorageService;
-        this.clusters = fileStorageService.loadClusters();
-        logger.info("ClusterService initialized with {} clusters", clusters.size());
+    public ClusterService(SqliteStorageService sqliteStorageService) {
+        this.sqliteStorageService = sqliteStorageService;
+        logger.info("ClusterService initialized with SQLite storage");
     }
 
     public synchronized List<Cluster> getAllClusters() {
+        List<Cluster> clusters = sqliteStorageService.loadClusters();
         for (Cluster cluster : clusters) {
             if (cluster.getCertificates() != null) {
                 for (Certificate cert : cluster.getCertificates()) {
@@ -35,14 +33,13 @@ public class ClusterService {
                 }
             }
         }
-        return new ArrayList<>(clusters);
+        return clusters;
     }
 
     public synchronized Cluster createCluster(String name, String description, String recipientEmails) {
         String id = "cluster-" + UUID.randomUUID().toString().substring(0, 8);
         Cluster newCluster = new Cluster(id, name, description, recipientEmails);
-        clusters.add(newCluster);
-        fileStorageService.saveClusters(clusters);
+        sqliteStorageService.saveCluster(newCluster);
         return newCluster;
     }
 
@@ -55,7 +52,7 @@ public class ClusterService {
         cluster.setDescription(description);
         cluster.setRecipientEmails(recipientEmails);
 
-        fileStorageService.saveClusters(clusters);
+        sqliteStorageService.saveCluster(cluster);
         return cluster;
     }
 
@@ -67,11 +64,7 @@ public class ClusterService {
 
         String id = "cert-" + UUID.randomUUID().toString().substring(0, 8);
         Certificate cert = new Certificate(id, certName, issuedDate, endDate);
-        if (cluster.getCertificates() == null) {
-            cluster.setCertificates(new ArrayList<>());
-        }
-        cluster.getCertificates().add(cert);
-        fileStorageService.saveClusters(clusters);
+        sqliteStorageService.saveCertificate(clusterId, cert);
         return cert;
     }
 
@@ -91,38 +84,24 @@ public class ClusterService {
         cert.setEndDate(endDate);
         cert.recalculateStatus();
 
-        fileStorageService.saveClusters(clusters);
+        sqliteStorageService.saveCertificate(clusterId, cert);
         return cert;
     }
 
     public synchronized boolean deleteCertificate(String clusterId, String certId) {
-        Cluster cluster = findClusterById(clusterId);
-        if (cluster != null && cluster.getCertificates() != null) {
-            boolean removed = cluster.getCertificates().removeIf(c -> c.getId() != null && c.getId().equals(certId));
-            if (removed) {
-                fileStorageService.saveClusters(clusters);
-                logger.info("Successfully deleted cert [{}] from cluster [{}]", certId, clusterId);
-                return true;
-            }
-        }
-        return false;
+        logger.info("Deleting cert [{}] from cluster [{}] in SQLite", certId, clusterId);
+        return sqliteStorageService.deleteCertificate(certId);
     }
 
     public synchronized boolean deleteCluster(String clusterId) {
-        logger.info("Attempting to delete cluster with ID [{}]", clusterId);
-        boolean removed = clusters.removeIf(c -> c.getId() != null && c.getId().equals(clusterId));
-        if (removed) {
-            fileStorageService.saveClusters(clusters);
-            logger.info("Successfully deleted cluster [{}] and saved storage file.", clusterId);
-            return true;
-        }
-        logger.warn("Failed to delete cluster [{}]: cluster ID not found.", clusterId);
-        return false;
+        logger.info("Attempting to delete cluster with ID [{}] from SQLite", clusterId);
+        return sqliteStorageService.deleteCluster(clusterId);
     }
 
     public synchronized int checkAndTriggerExpirationAlerts(GmailService gmailService, boolean forceAlert) {
         int alertCount = 0;
         String todayStr = LocalDate.now().toString();
+        List<Cluster> clusters = getAllClusters();
 
         for (Cluster cluster : clusters) {
             if (cluster.getCertificates() == null || cluster.getCertificates().isEmpty()) {
@@ -163,20 +142,18 @@ public class ClusterService {
                         gmailService.sendEmail(recipients, subject, bodyHtml, true);
 
                         cert.setLastAlertSentDate(todayStr);
+                        sqliteStorageService.saveCertificate(cluster.getId(), cert);
                         alertCount++;
                     }
                 }
             }
         }
 
-        if (alertCount > 0) {
-            fileStorageService.saveClusters(clusters);
-        }
-
         return alertCount;
     }
 
     public Cluster findClusterById(String id) {
+        List<Cluster> clusters = sqliteStorageService.loadClusters();
         return clusters.stream().filter(c -> c.getId().equals(id)).findFirst().orElse(null);
     }
 
